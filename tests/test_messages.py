@@ -28,6 +28,48 @@ class MessageTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await self.client.aclose()
 
+    async def test_cors_preflight_allows_frontend(self):
+        origin = "https://super-secret-margo-1488.vercel.app"
+        response = await self.client.options(
+            "/api/v1/messages",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["access-control-allow-origin"], origin)
+        self.assertIn("POST", response.headers["access-control-allow-methods"])
+        self.assertIn(
+            "content-type", response.headers["access-control-allow-headers"].lower()
+        )
+        self.assertNotIn("access-control-allow-credentials", response.headers)
+        self.sender.send.assert_not_awaited()
+
+    async def test_cors_preflight_rejects_other_origins(self):
+        response = await self.client.options(
+            "/api/v1/messages",
+            headers={
+                "Origin": "https://other.example",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertNotIn("access-control-allow-origin", response.headers)
+        self.sender.send.assert_not_awaited()
+
+    async def test_cors_headers_on_post_success_and_error(self):
+        origin = "https://super-secret-margo-1488.vercel.app"
+        for payload, status in (({"text": "hello"}, 200), ({"text": ""}, 422)):
+            response = await self.client.post(
+                "/api/v1/messages", json=payload, headers={"Origin": origin},
+            )
+            self.assertEqual(response.status_code, status)
+            self.assertEqual(response.headers["access-control-allow-origin"], origin)
+        self.sender.send.assert_awaited_once_with("hello")
+
     async def test_delivers_payload_unchanged(self):
         text = "  Привет <b>мир</b>!\nНовая строка"
         response = await self.client.post("/api/v1/messages", json={"text": text})

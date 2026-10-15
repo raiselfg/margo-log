@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from aiogram import Bot
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.api.middleware import RequestLoggingMiddleware
@@ -31,6 +32,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             logger.info("Application stopped | telegram_session=closed")
 
     app = FastAPI(title="Margo notifications", lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["https://super-secret-margo-1488.vercel.app"],
+        allow_credentials=False,
+        allow_methods=["POST"],
+        allow_headers=["Content-Type"],
+    )
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(router)
     return app
