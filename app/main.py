@@ -5,6 +5,7 @@ from aiogram import Bot
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.events import EventStore, router as events_router
 from app.api.routes import router
 from app.api.middleware import RequestLoggingMiddleware
 from app.core.logging import configure_logging
@@ -21,6 +22,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         config = settings if settings is not None else Settings()
+        app.state.event_store = EventStore(config.database_url.get_secret_value()) if config.database_url else None
         bot = Bot(token=config.telegram_bot_token.get_secret_value())
         try:
             sender = TelegramMessageSender(bot, config.telegram_chat_id)
@@ -41,6 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(router)
+    app.include_router(events_router)
     return app
 
 

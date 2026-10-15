@@ -8,3 +8,4 @@ class Settings(BaseSettings):
     )
     telegram_bot_token: SecretStr
     telegram_chat_id: int
+    database_url: SecretStr | None = None
