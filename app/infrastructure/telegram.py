@@ -1,4 +1,5 @@
 import logging
+from time import perf_counter
 
 from aiogram import Bot
 from aiogram.exceptions import (TelegramAPIError, TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError, TelegramUnauthorizedError)
@@ -15,6 +16,8 @@ class TelegramMessageSender:
         self._chat_id = chat_id
 
     async def send(self, text: str) -> int:
+        started = perf_counter()
+        logger.info("Telegram delivery started | text_length=%s", len(text))
         try:
             message = await self._bot.send_message(
                 chat_id=self._chat_id,
@@ -35,6 +38,13 @@ class TelegramMessageSender:
                     reason = "Chat not found; check TELEGRAM_CHAT_ID and send /start to the bot"
                 else:
                     reason = "Telegram rejected message parameters; check chat and text"
-            logger.warning("Telegram delivery failed (%s): %s", type(exc).__name__, reason)
+            logger.warning(
+                "Telegram delivery failed | error_type=%s reason=%s duration_ms=%.1f",
+                type(exc).__name__, reason, (perf_counter() - started) * 1000,
+            )
             raise MessageDeliveryError(reason) from exc
+        logger.info(
+            "Telegram delivery succeeded | message_id=%s duration_ms=%.1f",
+            message.message_id, (perf_counter() - started) * 1000,
+        )
         return message.message_id
